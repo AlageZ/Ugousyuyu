@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Ugousyuu</title>
+    <meta name="viewport" content="width=device-width, height=device-height,
+    user-scalable=no, initial-scale=1, maximum-scale=1" />
+    <script src="https://unpkg.com/sounds-some-sounds@1.0.5/build/index.js"></script>
+    <script src="https://unpkg.com/gif-capture-canvas@1.1.0/build/index.js"></script>
+    <script src="https://unpkg.com/terser@4.6.11/dist/bundle.min.js"></script>
+    <script src="https://unpkg.com/pixi.js@5.3.0/dist/pixi.min.js"></script>
+    <script src="https://unpkg.com/pixi-filters@3.1.1/dist/pixi-filters.js"></script>
+    <script>
+        var module = {};
+    </script>
+    <script src="https://unpkg.com/lodash.clonedeep@4.5.0/index.js"></script>
+    <script src="https://abagames.github.io/crisp-game-lib/bundle.js"></script>
+
+    <script>
+        title = "Ugousyuu";
+
+        description = `
+[Hold]    Fly Down
+[Release] Excretion
+`;
+        const G = {
+            WIDTH:150,
+            HEIGHT:100
+        }
+        characters = [
+            `
+  p  P
+PPp PP
+PlPPPP
+yPPPPP
+y PP  
+  l l 
+            `,
+            `
+  p   
+PPp   
+PlP   
+yPPPPP
+y PPPP
+  l lP
+            `,
+            `
+P  p  
+PP pPP
+PPPPlP
+PPPPPy
+  PP y 
+ l l  
+            `,
+            `
+   p  
+   pPP
+   PlP
+PPPPPy
+PPPP y
+Pl l  
+            `,
+            `
+ cccc 
+ClcclC
+ CyyC 
+bbyybb
+ LLLL 
+ L L  
+            `,
+            `
+ cccc 
+ClcclC
+ CyyC 
+bbyybb
+ LLLL 
+  L L 
+            `,
+            `
+  r   
+  rr  
+  rr  
+  rr  
+  lr  
+  l   
+
+            `
+        ];
+
+        options = {
+            viewSize:{x:G.WIDTH,y:G.HEIGHT},
+            isPlayingBgm: true,
+            isReplayEnabled: true,
+            seed: 328,
+        };
+        let player
+        let sunrakus
+        let pois
+        let nextSunrakuTicks
+        let choppers
+        function update() {
+            if (!ticks) {
+                player = {
+                    pos: vec(G.WIDTH / 2, 10),
+                    vx:1,
+                    f: "a",
+                    fc: 0,
+                    upspeed:0
+                }
+                nextSunrakuTicks = 0
+                sunrakus = []
+                pois = []
+                choppers = []
+            }else{
+                if (
+                    (player.pos.x < 3 && player.vx < 0) ||
+                    (player.pos.x > G.WIDTH-3 && player.vx > 0)
+                ) {
+                    player.vx *= -1
+
+                }
+                if (sunrakus.length === 0) {
+                    nextSunrakuTicks = 0;
+                }
+                nextSunrakuTicks--
+                if (nextSunrakuTicks < 0){
+                    const vx = rnd() < 0.5 ? -1 : 1;
+                    const fireInterval = rnd(120, 200) / difficulty;
+                    const av = rnd(1, 5);
+                    sunrakus.push({
+                        pos: vec(vx > 0 ? -3 : G.WIDTH+3, G.HEIGHT-8-3),
+                        vx,
+                        speed: (0.1 / sqrt(av)) * difficulty**1.5,
+                        tickgap: rndi(0, 9),
+                        fireTicks: fireInterval,
+                        fireInterval,
+                        fireSpeed: rnd(1, 1.5) * sqrt(difficulty),
+                    });
+                    nextSunrakuTicks = rnd(200, 300) / sqrt(difficulty);
+                }
+                color("light_yellow")
+                box(G.WIDTH / 2, G.HEIGHT - 4, G.WIDTH, 8)
+                color("purple")
+                let canta = Array(G.WIDTH).fill(false,0,G.WIDTH)
+                remove(pois, p => {
+                    p.pos.y += 0.5
+                    if (p.pos.y > G.HEIGHT-8){
+                        play("explosion")
+                        return true
+                    }else{
+                        box(p.pos, 1, 1)
+                        const flx = Math.floor(p.pos.x)
+                        canta[Math.min(G.WIDTH - 1, Math.max(flx - 3, 0))] = canta[Math.min(G.WIDTH-1,Math.max(flx-2,0))] = canta[Math.min(G.WIDTH-1,Math.max(flx-1,0))] = canta[Math.min(G.WIDTH-1,Math.max(flx, 0))] = canta[Math.min(G.WIDTH-1,Math.max(flx+1, 0))] = canta[Math.min(G.WIDTH-1,Math.max(flx+2, 0))] = canta[Math.min(G.WIDTH-1,Math.max(flx+3, 0))] = true
+                    }
+                })
+                color("black")
+                remove(sunrakus,(t)=>{
+                    let lf = canta[Math.floor(t.pos.x-t.speed)]
+                    let cf = canta[Math.floor(t.pos.x)]
+                    let rf = canta[Math.floor(t.pos.x + t.speed)]
+                    if (!lf && !rf){
+                        if (Math.floor(t.pos.x) < Math.floor(player.pos.x)){
+                            t.pos.x += t.speed
+                        }else{
+                            t.pos.x -= t.speed
+                        }
+                    }else if (!cf && lf && rf){
+                        ;
+                    }else if (!lf){
+                        t.pos.x -= t.speed
+                    }else{
+                        t.pos.x += t.speed
+                    }
+                    text(String(Math.floor(t.fireTicks/6)/10),t.pos.x,t.pos.y+8)
+                    if (char(addWithCharCode("e", floor((ticks+t.tickgap) / 10) % 2),t.pos).isColliding.rect.purple){
+                        return true
+                    }
+                    t.fireTicks--
+                    if (t.fireTicks < 0) {
+                        play("hit");
+                        choppers.push({
+                            pos: vec(t.pos),
+                        });
+                        t.fireTicks = t.fireInterval;
+                    }
+                })
+                color("transparent")
+                remove(pois, p => {
+                    if (box(p.pos, 1, 1).isColliding.char.e || box(p.pos, 1, 1).isColliding.char.f) {
+                        addScore(10 + Math.floor(p.start / 10) ** 2, p.pos)
+                        play("powerUp")
+                        return true
+                    }
+                })
+                color("black")
+                remove(choppers,(t)=>{
+                    t.pos.y-=0.5
+                    char("g",t.pos)
+                    return t.pos.y < -3
+                })
+                player.pos.y = Math.max(player.pos.y-player.upspeed,10)
+                player.fc += 1
+                if (input.isPressed) {
+                    player.upspeed = 0
+                    player.pos.y = Math.min(player.pos.y + 1, G.HEIGHT - 17)
+                }else{
+                    player.upspeed += 0.01
+                    player.pos.x += player.vx*1.5
+                }
+                if (input.isJustReleased){
+                    pois.push({pos: vec(player.pos.x,player.pos.y),start:player.pos.y+0})
+                }
+                color("black")
+                if (char(addWithCharCode(addWithCharCode("a",player.vx+1), floor(ticks / 10) % 2),player.pos).isColliding.char.g){
+                    play("explosion")
+                    end()
+                }
+                if (input.isJustPressed) {
+                    play("laser");
+                }
+            }
+        }
+
+        addEventListener("load", onLoad);
+    </script>
+
+</head>
+
+<body style="background: #ddd">
+    <span style="position:absolute;bottom:0;left:0;display:block;">©シャングリラ・フロンティア/<br>硬梨菜/不二涼介/講談社/クソゲーコンペ</span>
+</body>
+
+</html>
